@@ -29,10 +29,22 @@ macro_rules! iterator {
                 let inner_offset = shape.0.value() * strides.0.value();
                 let ptr = storage.$ptr();
 
+                // Safety:
+                // Avoid calling 'ptr.offset' when the offset is zero -
+                // this might mean that the ptr is dangling, since it need not
+                // be valid for a zero-sized allocation.
+                // If the offset is non-zero, we're guaranteed to have a valid
+                // allocation, so it's safe to call 'offset'.
+                let inner_end = if inner_offset == 0 {
+                    unsafe { ptr.offset(inner_offset as isize) }
+                } else {
+                    ptr
+                };
+
                 $Name {
                     ptr: ptr,
                     inner_ptr: ptr,
-                    inner_end: unsafe { ptr.offset(inner_offset as isize) },
+                    inner_end,
                     size: shape.0.value() * shape.1.value(),
                     strides: strides,
                     _phantoms: PhantomData,
